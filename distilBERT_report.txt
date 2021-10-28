@@ -1,3 +1,22 @@
+# Labels:
+
+0  ----- EDAnonymous
+1  ----- addiction
+2  ----- adhd
+3  ----- alcoholism
+4  ----- anxiety
+5  ----- autism
+6  ----- bipolarreddit
+7  ----- bpd
+8  ----- depression
+9  ----- healthanxiety
+10 ----- lonely
+11 ----- ptsd
+12 ----- schizophrenia
+13 ----- socialanxiety
+14 ----- suicidewatch
+
+##############################################################################################################
 
 With Weighted Sampling:
 
