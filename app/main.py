@@ -89,4 +89,5 @@ if __name__ == '__main__':
         # Model is used for predicting label for the text here
         predicted_label = predict_text_label_CNN(entered_text)
         st.markdown(f"### Predicted disorder: {label_ids_to_names[predicted_label]}")
+        
 
