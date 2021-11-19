@@ -23,6 +23,7 @@ from sklearn.metrics import classification_report, accuracy_score
 import pandas as pd
 import streamlit as st
 
+# Loads model on first execution of app
 def model_init_():
     if torch.cuda.is_available():       
         device = torch.device("cuda")
@@ -30,19 +31,24 @@ def model_init_():
         print('No GPU available, using the CPU instead.')
         device = torch.device("cpu")
 
-    tokenizer = DistilBertTokenizer.from_pretrained('model_save_epoch3/', do_lower_case=True)
+    tokenizer = DistilBertTokenizer.from_pretrained('../models/DistilBERT/model_save_epoch3/', do_lower_case=True)
     num_labels = 15
     batch_size = 32
     model = DistilBertForSequenceClassification.from_pretrained(
-        "model_save_epoch3/", # Use the 12-layer BERT model, with an uncased vocab.
+        "../models/DistilBERT/model_save_epoch3/", # Use the 12-layer BERT model, with an uncased vocab.
         num_labels = num_labels, # The number of output labels--2 for binary classification.
                         # You can increase this for multi-class tasks.   
         output_attentions = False, # Whether the model returns attentions weights.
         output_hidden_states = False, # Whether the model returns all hidden-states.
+        force_download = True
     )
     torch.cuda.empty_cache()
     model.cuda()
-    return device,tokenizer,num_labels,batch_size,model
+    st.session_state.device = device
+    st.session_state.tokenizer = tokenizer
+    st.session_state.num_labels = num_labels
+    st.session_state.batch_size = batch_size
+    st.session_state.model = model
 
 # cleaning data
 def clean_post(post):
@@ -53,6 +59,7 @@ def clean_post(post):
     # post = re.sub(r"\b\w{1,3}\b", " ", post)
     return post
 
+# Not needed for app - just for evaluation of transformer
 def get_metrics(y_true, y_pred,epoch):
     f = open(f'report{epoch}.txt','w+')
     result1 = classification_report(y_true, y_pred)
@@ -66,7 +73,8 @@ def get_metrics(y_true, y_pred,epoch):
     print('Accuracy: ', result2, "\n\n")
     f.write('\nAccuracy Report: \n')
     f.write(str(result2))
-    
+
+# Creates dataset for evaluation of given text
 def create_dataset(tokenizer,batch_size,data):
     X = data['post'].apply(lambda post: clean_post(post))
     label_encoder = LabelEncoder()
@@ -119,6 +127,7 @@ def create_dataset(tokenizer,batch_size,data):
             )
     return test_dataloader
 
+# Obtains final prediction for given text
 def eval(model,test_dataloader,device):
     model.eval()
     predictions ,predictions_final, true_labels = [], [], []
@@ -139,6 +148,7 @@ def eval(model,test_dataloader,device):
   
     return predictions_final,true_labels
 
+# Not needed for app - just for evaluation of transformer
 def evaluate_on_test_data():
     device,tokenizer,num_labels,batch_size,model = model_init_()
     data = pd.read_csv('reddit_dataset/test.csv')[['post','mental_disorder']]
@@ -147,15 +157,15 @@ def evaluate_on_test_data():
     test_dataloader = create_dataset(tokenizer,batch_size,data)
     predictions_final, true_labels = eval(model,test_dataloader,device)
     get_metrics(true_labels,predictions_final,"test")
-    
+
+# Returns label of text     
 def get_text_label(text):
-    device,tokenizer,num_labels,batch_size,model = model_init_()
     data = pd.DataFrame({
         'post':[text],
         'mental_disorder': ["None"]
     })
-    test_dataloader = create_dataset(tokenizer,batch_size,data)
-    predictions_final, true_labels = eval(model,test_dataloader,device)
+    test_dataloader = create_dataset(st.session_state.tokenizer, st.session_state.batch_size, data)
+    predictions_final, true_labels = eval(st.session_state.model, test_dataloader, st.session_state.device)
     return predictions_final[0]
 
 PAGE_CONFIG = {'page_title':'IRE Major Project','layout':"wide"}
@@ -165,15 +175,15 @@ st.set_page_config(**PAGE_CONFIG)
 if __name__ == '__main__':
     
     label_ids_to_names = {
-    0: "Eating disorder", 1: "Addiction", 2: "ADHD", 3: "Alcoholism",
-    4: "Anxiety", 5: "Autism", 6: "Bi-polar disorder", 7: "Borderline personality disorder", 
-    8: "Depression", 9: "Health Anxiety", 10: "Loneliness", 11: "PTSD", 
-    12: "Schizophrenia", 13: "Social Anxiety", 14: "Suicidal tendencies"
+        0: "Eating disorder", 1: "Addiction", 2: "ADHD", 3: "Alcoholism",
+        4: "Anxiety", 5: "Autism", 6: "Bi-polar disorder", 7: "Borderline personality disorder", 
+        8: "Depression", 9: "Health Anxiety", 10: "Loneliness", 11: "PTSD", 
+        12: "Schizophrenia", 13: "Social Anxiety", 14: "Suicidal tendencies"
     }
     
     if "models_loaded" not in st.session_state:
         st.session_state.models_loaded = True
-        load_all_models()
+        model_init_()
         
     st.title("Multi-Class Classification of Mental Health Disorders")
     st.write('\n'*12)
@@ -194,7 +204,7 @@ if __name__ == '__main__':
 
     if submit:
         # Model is used for predicting label for the text here
-        predicted_label = predict_text_label_CNN(entered_text)
+        predicted_label = get_text_label(entered_text)
         st.markdown(f"### Predicted disorder: {label_ids_to_names[predicted_label]}")
         
 
